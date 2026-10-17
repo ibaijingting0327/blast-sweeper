@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blast Asset Sweeper | Blast 链遗留资产批量查询与一键归集工具</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --card: #14181f;
+      --border: #262c36;
+      --yellow: #fcfc03;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --green: #10b981;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 1180px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0; font-size: 21px; display: flex; align-items: center; gap: 10px; }
+    .badge {
+      background: var(--yellow);
+      color: #000;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    input[type="text"], textarea {
+      background: #0b0d10;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    input[type="text"] { flex: 1; min-width: 300px; }
+    textarea { width: 100%; min-height: 84px; resize: vertical; margin-top: 8px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 13px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: opacity 0.15s, transform 0.05s;
+    }
+    button:hover { opacity: 0.9; }
+    button:active { transform: scale(0.98); }
+    .btn-primary { background: var(--yellow); color: #000; }
+    .btn-secondary { background: #262c36; color: var(--text); }
+    .btn-green { background: var(--green); color: #000; }
+    .btn-blue { background: var(--blue); color: #fff; }
+    .btn-red { background: #3f1d1d; color: #fca5a5; border: 1px solid var(--red); }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    .status-bar {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #0e1217;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--yellow);
+      font-family: monospace;
+      word-break: break-all;
+    }
+    .current-wallet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .asset-box {
+      background: #0e1217;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .asset-title { font-size: 12px; color: var(--muted); }
+    .asset-val { font-size: 19px; font-weight: 700; font-family: monospace; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      text-align: left;
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--border);
+      font-family: monospace;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    tr.active-row { background: rgba(252, 252, 3, 0.12); }
+    .tag-current {
+      background: var(--yellow);
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .highlight { color: var(--yellow); font-weight: 700; }
+    .green-text { color: var(--green); font-weight: 700; }
+    .tips { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--yellow); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>⚡ Blast Asset Sweeper <span class="badge">Open Source / 零私钥纯前端</span></h1>
+        <div class="tips">批量查询 Blast 主网遗留资产（ETH / WETH / USDB / VUSDB / BLAST 等），通过浏览器钱包签名一键归集到主地址。</div>
+      </div>
+      <div class="row">
+        <button class="btn-primary" onclick="connectOnly()">1️⃣ 连接钱包 & 自动加入列表</button>
+        <button class="btn-blue" onclick="switchChainOnly()">2️⃣ 切换到 Blast 主网</button>
+        <button class="btn-secondary" onclick="refreshAll()">🔄 刷新全部余额</button>
+      </div>
+    </header>
+
+    <!-- 第一步：设置主收款地址 -->
+    <div class="card">
+      <div style="font-weight: 600; margin-bottom: 8px;">🎯 第一步：设置归集收款主地址（所有小号的资产将统一转入此地址）</div>
+      <div class="row">
+        <input type="text" id="targetAddress" placeholder="输入你的主收款钱包地址 0x..." value="" onchange="saveTarget()" />
+        <button class="btn-secondary" onclick="useCurrentAsTarget()">设为当前连接的钱包地址</button>
+      </div>
+      <div class="tips">提示：收款主地址会自动保存在你当前浏览器的 localStorage 中，无需重复输入。</div>
+    </div>
+
+    <!-- 第二步：当前连接的钱包实时检测与一键归集 -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <span style="font-weight: 600;">🦊 当前连接的钱包账户：</span>
+          <span id="currentAccountDisplay" style="font-family:monospace; color:var(--yellow);">未连接 (请点右上角 1️⃣ 连接)</span>
+          <span id="currentChainDisplay" style="font-size:12px; color:var(--muted); margin-left:8px;"></span>
+        </div>
+        <div style="font-size:12px; color:var(--muted);">⚠️ 建议顺序：先转代币 (VUSDB / USDB / WETH / 其他代币) ➔ 最后清空原生 ETH</div>
+      </div>
+
+      <div class="current-wallet-grid">
+        <div class="asset-box" id="vusdbBox" style="display:none; border-color: var(--yellow);">
+          <div>
+            <div class="asset-title">🎁 可赎回 VUSDB 金库凭证</div>
+            <div class="asset-val" id="curVUSDB">0.0000</div>
+          </div>
+          <button class="btn-primary" onclick="redeemVUSDB()">0. 一键赎回成 USDB</button>
+        </div>
+
+        <div class="asset-box">
+          <div>
+            <div class="asset-title">1️⃣ USDB 稳定币余额</div>
+            <div class="asset-val" id="curUSDB">-</div>
+          </div>
+          <button class="btn-green" onclick="sendERC20(TOKENS.USDB, 'USDB', currentBalancesRaw.USDB)">1. 转出全部 USDB</button>
+        </div>
+
+        <div class="asset-box">
+          <div>
+            <div class="asset-title">2️⃣ WETH 余额</div>
+            <div class="asset-val" id="curWETH">-</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-blue" style="flex:1;" onclick="sendERC20(TOKENS.WETH, 'WETH', currentBalancesRaw.WETH)">转出 WETH</button>
+            <button class="btn-secondary" style="flex:1;" onclick="unwrapWETH()">解包装为 ETH</button>
+          </div>
+        </div>
+
+        <div class="asset-box">
+          <div>
+            <div class="asset-title">3️⃣ BLAST 代币余额</div>
+            <div class="asset-val" id="curBLAST">-</div>
+          </div>
+          <button class="btn-secondary" onclick="sendERC20(TOKENS.BLAST, 'BLAST', currentBalancesRaw.BLAST)">转出全部 BLAST</button>
+        </div>
+
+        <div class="asset-box">
+          <div>
+            <div class="asset-title">4️⃣ 原生 ETH 余额 (最后转)</div>
+            <div class="asset-val" id="curETH">-</div>
+          </div>
+          <button class="btn-primary" onclick="sweepETH()">最后一步：扣除Gas转出全部 ETH</button>
+        </div>
+      </div>
+
+      <!-- 动态扫描到的其他非垃圾 ERC20 代币 -->
+      <div id="extraTokensArea" style="margin-top:12px; display:none;">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">🔍 当前账户检测到的其他 ERC-20 代币（已过滤钓鱼空投）：</div>
+        <div class="row" id="extraTokensList"></div>
+      </div>
+
+      <div class="status-bar" id="statusLog">状态：等待连接钱包或输入地址查询...</div>
+    </div>
+
+    <!-- 第三步：添加 / 批量查询任意地址 -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-weight: 600;">➕ 批量添加 / 查询钱包地址（纯本地保存，不上传任何服务器）</div>
+        <div class="row">
+          <button class="btn-secondary btn-sm" onclick="filterValuableOnly()">只保留有资产的地址 (≥$1)</button>
+          <button class="btn-secondary btn-sm" onclick="exportCSV()">📥 导出 CSV 报表</button>
+          <button class="btn-red btn-sm" onclick="clearAllAddresses()">清空列表</button>
+        </div>
+      </div>
+      <textarea id="batchInput" placeholder="在此粘贴任意数量的 0x 钱包地址（支持换行、空格、逗号分隔），点击下方按钮即可批量查询 Blast 链余额..."></textarea>
+      <div class="row" style="margin-top: 8px;">
+        <button class="btn-primary" onclick="addBatchAddresses()">🔍 添加并查询这些地址</button>
+        <span class="tips">提示：你在小狐狸里切换任何新账号时，也会自动加入下方列表并查出余额。</span>
+      </div>
+    </div>
+
+    <!-- 第四步：监控与汇总表格 -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; flex-wrap:wrap; gap:8px;">
+        <div style="font-weight: 600;">📋 钱包资产实时列表（共 <span id="addrCount">0</span> 个地址）</div>
+        <div id="totalSummary" style="font-family:monospace; font-size:13px; color:var(--yellow);"></div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>钱包地址</th>
+              <th>原生 ETH</th>
+              <th>WETH</th>
+              <th>USDB</th>
+              <th>VUSDB (可赎回)</th>
+              <th>BLAST</th>
+              <th>折合估值</th>
+              <th>状态 / 操作</th>
+            </tr>
+          </thead>
+          <tbody id="walletTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      100% 开源纯前端工具 · 不收集任何地址或私钥 · 直接通过 Blast 公共 RPC 与浏览器钱包交互
+    </footer>
+  </div>
+
+  <script>
+    const BLAST_CHAIN_ID_HEX = "0x13e31"; // 81457
+    const BLAST_RPC = "https://blast-rpc.publicnode.com";
+
+    const TOKENS = {
+      USDB: "0x4300000000000000000000000000000000000003",
+      WETH: "0x4300000000000000000000000000000000000004",
+      BLAST: "0xb1a5700fA2358173Fe465e6eA4Ff52E36e88E2ad",
+      VUSDB: "0xdb0c5d39c95A53eCdA3fCF6f6C5C81C7a74910c7"
+    };
+
+    let watchAddresses = [];
+    let addressCache = {};
+    let currentAccount = null;
+    let currentBalancesRaw = { ETH: 0n, USDB: 0n, WETH: 0n, BLAST: 0n, VUSDB: 0n };
+    let eip6963Provider = null;
+
+    window.addEventListener("eip6963:announceProvider", (event) => {
+      if (event.detail && event.detail.info && event.detail.info.rdns === "io.metamask") {
+        eip6963Provider = event.detail.provider;
+      }
+    });
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    function getProvider() {
+      if (eip6963Provider) return eip6963Provider;
+      if (window.ethereum) {
+        if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {
+          const mm = window.ethereum.providers.find(p => p.isMetaMask && !p.isOkxWallet && !p.isRabby);
+          if (mm) return mm;
+        }
+        return window.ethereum;
+      }
+      return null;
+    }
+
+    function loadSavedState() {
+      try {
+        const saved = localStorage.getItem("blast_sweeper_addresses_v1");
+        if (saved) watchAddresses = JSON.parse(saved);
+        const savedTarget = localStorage.getItem("blast_sweeper_target_v1");
+        if (savedTarget) document.getElementById("targetAddress").value = savedTarget;
+      } catch (e) {
+        watchAddresses = [];
+      }
+    }
+
+    function saveAddresses() {
+      try {
+        localStorage.setItem("blast_sweeper_addresses_v1", JSON.stringify(watchAddresses));
+      } catch (e) {}
+    }
+
+    function saveTarget() {
+      try {
+        localStorage.setItem("blast_sweeper_target_v1", document.getElementById("targetAddress").value.trim());
+      } catch (e) {}
+    }
+
+    function ensureAddressInList(addr) {
+      if (!addr || !/^0x[a-fA-F0-9]{40}$/.test(addr)) return false;
+      const exists = watchAddresses.some(a => a.toLowerCase() === addr.toLowerCase());
+      if (!exists) {
+        watchAddresses.unshift(addr);
+        saveAddresses();
+        return true;
+      }
+      return false;
+    }
+
+    function addBatchAddresses() {
+      const raw = document.getElementById("batchInput").value;
+      const matches = raw.match(/0x[a-fA-F0-9]{40}/g) || [];
+      if (matches.length === 0) {
+        alert("未在输入框中识别到有效的 0x 钱包地址！");
+        return;
+      }
+      let added = 0;
+      for (const addr of matches) {
+        const exists = watchAddresses.some(a => a.toLowerCase() === addr.toLowerCase());
+        if (!exists) {
+          watchAddresses.push(addr);
+          added++;
+        }
+      }
+      saveAddresses();
+      document.getElementById("batchInput").value = "";
+      logStatus(`已添加 ${added} 个新地址（共识别 ${matches.length} 个），正在查询链上余额...`);
+      refreshTable();
+    }
+
+    function removeAddress(addr) {
+      watchAddresses = watchAddresses.filter(a => a.toLowerCase() !== addr.toLowerCase());
+      saveAddresses();
+      refreshTable();
+    }
+
+    function clearAllAddresses() {
+      watchAddresses = [];
+      saveAddresses();
+      refreshTable();
+    }
+
+    function filterValuableOnly() {
+      watchAddresses = watchAddresses.filter(addr => {
+        const c = addressCache[addr.toLowerCase()];
+        return c && c.usd >= 1.0;
+      });
+      saveAddresses();
+      refreshTable();
+      logStatus("已过滤掉估值小于 $1 的空地址。");
+    }
+
+    function exportCSV() {
+      if (watchAddresses.length === 0) {
+        alert("当前列表为空！");
+        return;
+      }
+      const header = ["序号,钱包地址,原生ETH,WETH,USDB,VUSDB,BLAST,预估总价值(USD)"];
+      watchAddresses.forEach((addr, i) => {
+        const c = addressCache[addr.toLowerCase()] || { ethNum: 0, wethNum: 0, usdbNum: 0, vusdbNum: 0, blastNum: 0, usd: 0 };
+        header.push(`${i + 1},${addr},${c.ethNum.toFixed(6)},${c.wethNum.toFixed(6)},${c.usdbNum.toFixed(2)},${c.vusdbNum.toFixed(2)},${c.blastNum.toFixed(1)},${c.usd.toFixed(2)}`);
+      });
+      const blob = new Blob(["\uFEFF" + header.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "blast-balances.csv";
+      a.click();
+    }
+
+    function logStatus(msg) {
+      document.getElementById("statusLog").innerText = "状态：" + msg;
+    }
+
+    function setTarget(addr) {
+      document.getElementById("targetAddress").value = addr;
+      saveTarget();
+      logStatus(`已将主收款地址设为 ${addr}`);
+    }
+
+    function useCurrentAsTarget() {
+      if (!currentAccount) {
+        alert("请先连接钱包！");
+        return;
+      }
+      setTarget(currentAccount);
+    }
+
+    function pad32(hexWithout0x) {
+      return hexWithout0x.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+    }
+
+    function formatUnits(weiBigInt, decimals = 18, precision = 6) {
+      const base = 10n ** BigInt(decimals);
+      const integer = weiBigInt / base;
+      const fraction = weiBigInt % base;
+      const fracStr = fraction.toString().padStart(decimals, "0").slice(0, precision);
+      return `${integer.toString()}.${fracStr}`;
+    }
+
+    async function rpcCall(batch) {
+      const res = await fetch(BLAST_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(batch)
+      });
+      return await res.json();
+    }
+
+    async function fetchAddressBalances(addr) {
+      const dataBal = "0x70a08231" + pad32(addr);
+      const batch = [
+        { jsonrpc: "2.0", method: "eth_getBalance", params: [addr, "latest"], id: "ETH" },
+        { jsonrpc: "2.0", method: "eth_call", params: [{ to: TOKENS.USDB, data: dataBal }, "latest"], id: "USDB" },
+        { jsonrpc: "2.0", method: "eth_call", params: [{ to: TOKENS.WETH, data: dataBal }, "latest"], id: "WETH" },
+        { jsonrpc: "2.0", method: "eth_call", params: [{ to: TOKENS.BLAST, data: dataBal }, "latest"], id: "BLAST" },
+        { jsonrpc: "2.0", method: "eth_call", params: [{ to: TOKENS.VUSDB, data: dataBal }, "latest"], id: "VUSDB" }
+      ];
+      const resp = await rpcCall(batch);
+      const map = {};
+      for (const item of resp) {
+        const val = item.result && item.result !== "0x" ? BigInt(item.result) : 0n;
+        map[item.id] = val;
+      }
+      return map;
+    }
+
+    async function scanExtraTokens(addr) {
+      const area = document.getElementById("extraTokensArea");
+      const list = document.getElementById("extraTokensList");
+      try {
+        const res = await fetch(`https://api.routescan.io/v2/network/mainnet/evm/81457/address/${addr}/erc20-holdings`);
+        const data = await res.json();
+        const items = data.items || [];
+        const knownAddrs = Object.values(TOKENS).map(a => a.toLowerCase());
+        const validExtras = [];
+
+        for (const it of items) {
+          const tAddr = (it.tokenAddress || "").toLowerCase();
+          const sym = it.tokenSymbol || "";
+          const name = it.tokenName || "";
+          if (knownAddrs.includes(tAddr)) continue;
+          if (/http|claim|visit|\.com|\.net|\.xyz|\.org|\.io|\.fund|t\.ly/i.test(sym + " " + name)) continue;
+          const dec = Number(it.tokenDecimals || 18);
+          const rawQty = BigInt(it.tokenQuantity || "0");
+          if (rawQty <= 0n) continue;
+          validExtras.push({
+            address: it.tokenAddress,
+            symbol: sym,
+            decimals: dec,
+            rawQty: rawQty,
+            formatted: formatUnits(rawQty, dec, 4)
+          });
+        }
+
+        if (validExtras.length > 0) {
+          area.style.display = "block";
+          list.innerHTML = validExtras.map(t => `
+            <button class="btn-secondary btn-sm" onclick="sendERC20('${t.address}', '${t.symbol}', BigInt('${t.rawQty.toString()}'))">
+              转出 ${t.formatted} ${t.symbol}
+            </button>
+          `).join("");
+        } else {
+          area.style.display = "none";
+        }
+      } catch (e) {
+        area.style.display = "none";
+      }
+    }
+
+    async function updateChainBadge() {
+      const provider = getProvider();
+      if (!provider) return;
+      try {
+        const cid = await provider.request({ method: "eth_chainId" });
+        const isBlast = cid && cid.toLowerCase() === BLAST_CHAIN_ID_HEX;
+        document.getElementById("currentChainDisplay").innerHTML = isBlast
+          ? `<span style="color:var(--green)">[已切到 Blast 主网]</span>`
+          : `<span style="color:var(--red)">[当前非 Blast 链 (${cid})，请点右上角 2️⃣ 切换]</span>`;
+      } catch (e) {}
+    }
+
+    async function refreshCurrentAccount() {
+      await updateChainBadge();
+      if (!currentAccount) return;
+      const added = ensureAddressInList(currentAccount);
+      const idx = watchAddresses.findIndex(a => a.toLowerCase() === currentAccount.toLowerCase());
+      const tag = idx >= 0 ? ` (列表中 #${idx + 1})` : "";
+      document.getElementById("currentAccountDisplay").innerText = currentAccount + tag;
+
+      const b = await fetchAddressBalances(currentAccount);
+      currentBalancesRaw = b;
+
+      document.getElementById("curUSDB").innerText = formatUnits(b.USDB, 18, 4) + " USDB";
+      document.getElementById("curWETH").innerText = formatUnits(b.WETH, 18, 6) + " WETH";
+      document.getElementById("curBLAST").innerText = formatUnits(b.BLAST, 18, 2) + " BLAST";
+      document.getElementById("curETH").innerText = formatUnits(b.ETH, 18, 6) + " ETH";
+
+      const vusdbBox = document.getElementById("vusdbBox");
+      if (b.VUSDB > 0n) {
+        vusdbBox.style.display = "flex";
+        document.getElementById("curVUSDB").innerText = formatUnits(b.VUSDB, 18, 4) + " VUSDB";
+      } else {
+        vusdbBox.style.display = "none";
+      }
+
+      scanExtraTokens(currentAccount);
+      if (added) refreshTable();
+    }
+
+    async function refreshTable() {
+      const tbody = document.getElementById("walletTableBody");
+      document.getElementById("addrCount").innerText = watchAddresses.length;
+      if (watchAddresses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="color:var(--muted);">列表为空，请点击右上角「1️⃣ 连接钱包」或在上方输入框批量粘贴 0x 地址进行查询。</td></tr>`;
+        document.getElementById("totalSummary").innerText = "";
+        return;
+      }
+
+      const rowsHtml = [];
+      let totalETH = 0, totalWETH = 0, totalUSDB = 0, totalVUSDB = 0, totalUSD = 0;
+
+      for (let i = 0; i < watchAddresses.length; i++) {
+        const addr = watchAddresses[i];
+        const b = await fetchAddressBalances(addr);
+        const isCur = currentAccount && currentAccount.toLowerCase() === addr.toLowerCase();
+
+        const ethNum = Number(formatUnits(b.ETH, 18, 6));
+        const wethNum = Number(formatUnits(b.WETH, 18, 6));
+        const usdbNum = Number(formatUnits(b.USDB, 18, 2));
+        const vusdbNum = Number(formatUnits(b.VUSDB, 18, 2));
+        const blastNum = Number(formatUnits(b.BLAST, 18, 2));
+
+        const estUsd = (ethNum + wethNum) * 2420 + usdbNum + (vusdbNum * 0.95);
+        addressCache[addr.toLowerCase()] = { ethNum, wethNum, usdbNum, vusdbNum, blastNum, usd: estUsd };
+
+        totalETH += ethNum;
+        totalWETH += wethNum;
+        totalUSDB += usdbNum;
+        totalVUSDB += vusdbNum;
+        totalUSD += estUsd;
+
+        let hint = "✅ 已清空";
+        if (estUsd >= 20) hint = "🔥 重点提现";
+        else if (estUsd >= 2) hint = "💰 有余额";
+
+        rowsHtml.push(`
+          <tr class="${isCur ? 'active-row' : ''}">
+            <td>#${i + 1}</td>
+            <td>${addr}${isCur ? '<span class="tag-current">当前连接</span>' : ''}</td>
+            <td class="${ethNum > 0.003 ? 'highlight' : ''}">${ethNum.toFixed(6)}</td>
+            <td class="${wethNum > 0.001 ? 'green-text' : ''}">${wethNum.toFixed(6)}</td>
+            <td class="${usdbNum > 1 ? 'green-text' : ''}">${usdbNum.toFixed(2)}</td>
+            <td class="${vusdbNum > 1 ? 'highlight' : ''}">${vusdbNum.toFixed(2)}</td>
+            <td>${blastNum.toFixed(1)}</td>
+            <td class="${estUsd >= 10 ? 'green-text' : ''}">~$${estUsd.toFixed(2)}</td>
+            <td>
+              ${hint}
+              <button class="btn-secondary btn-sm" style="margin-left:6px;" onclick="removeAddress('${addr}')">移除</button>
+            </td>
+          </tr>
+        `);
+      }
+      tbody.innerHTML = rowsHtml.join("");
+      document.getElementById("totalSummary").innerText =
+        `汇总：ETH ${totalETH.toFixed(4)} | WETH ${totalWETH.toFixed(4)} | USDB ${totalUSDB.toFixed(2)} | 总估值 ~$${totalUSD.toFixed(2)}`;
+    }
+
+    async function refreshAll() {
+      await refreshCurrentAccount();
+      await refreshTable();
+    }
+
+    async function connectOnly() {
+      const provider = getProvider();
+      if (!provider) {
+        alert("未检测到浏览器钱包插件（如 MetaMask）！");
+        return;
+      }
+      try {
+        logStatus("正在唤起钱包连接（若未弹窗请点击浏览器右上角钱包图标）...");
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        if (accounts && accounts.length > 0) {
+          currentAccount = accounts[0];
+          ensureAddressInList(currentAccount);
+          logStatus("✅ 已连接钱包并加入监控列表：" + currentAccount);
+          await refreshAll();
+        }
+      } catch (e) {
+        logStatus("❌ 连接报错：" + (e.message || JSON.stringify(e)));
+      }
+    }
+
+    async function switchChainOnly() {
+      const provider = getProvider();
+      if (!provider) {
+        alert("未检测到钱包插件！");
+        return;
+      }
+      try {
+        logStatus("正在请求切换到 Blast 主网...");
+        await provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: BLAST_CHAIN_ID_HEX }]
+        });
+        logStatus("✅ 已切换到 Blast 主网！");
+        await refreshCurrentAccount();
+      } catch (switchError) {
+        if (switchError.code === 4902 || (switchError.message && switchError.message.includes("Unrecognized chain ID"))) {
+          try {
+            await provider.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: BLAST_CHAIN_ID_HEX,
+                chainName: "Blast Mainnet",
+                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["https://blast-rpc.publicnode.com", "https://rpc.blast.io"],
+                blockExplorerUrls: ["https://blastscan.io"]
+              }]
+            });
+            logStatus("✅ 已成功添加并切换到 Blast 主网！");
+            await refreshCurrentAccount();
+          } catch (addErr) {
+            logStatus("❌ 添加 Blast 网络失败：" + (addErr.message || JSON.stringify(addErr)));
+          }
+        } else {
+          logStatus("❌ 切换网络失败：" + (switchError.message || JSON.stringify(switchError)));
+        }
+      }
+    }
+
+    async function requireBlastBeforeTx() {
+      const provider = getProvider();
+      if (!provider) throw new Error("未检测到钱包");
+      if (!currentAccount) {
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        currentAccount = accounts[0];
+      }
+      const cid = await provider.request({ method: "eth_chainId" });
+      if (!cid || cid.toLowerCase() !== BLAST_CHAIN_ID_HEX) {
+        alert("当前钱包不在 Blast 链上！请先点击右上角「2️⃣ 切换到 Blast 主网」。");
+        throw new Error("不在 Blast 链");
+      }
+      return provider;
+    }
+
+    function getTargetAddress() {
+      const target = document.getElementById("targetAddress").value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(target)) {
+        alert("请先在「第一步」填写合法的 0x 收款主地址！");
+        throw new Error("收款地址格式不正确");
+      }
+      if (currentAccount && target.toLowerCase() === currentAccount.toLowerCase()) {
+        alert("当前连接的钱包就是收款主地址，无需转给自己！");
+        throw new Error("不能转给自己");
+      }
+      return target;
+    }
+
+    async function redeemVUSDB() {
+      try {
+        const provider = await requireBlastBeforeTx();
+        await refreshCurrentAccount();
+        const shares = currentBalancesRaw.VUSDB;
+        if (shares <= 0n) {
+          alert("当前账号没有 VUSDB 可赎回！");
+          return;
+        }
+        const data = "0xba087652" + pad32(shares.toString(16)) + pad32(currentAccount) + pad32(currentAccount);
+        logStatus("正在请求钱包签名赎回 VUSDB ➔ USDB...");
+        const txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: currentAccount, to: TOKENS.VUSDB, data: data }]
+        });
+        logStatus(`✅ VUSDB 赎回已提交！Tx: ${txHash} ，5秒后刷新...`);
+        setTimeout(refreshAll, 5000);
+      } catch (e) {
+        logStatus("赎回取消或失败：" + (e.message || JSON.stringify(e)));
+      }
+    }
+
+    async function sendERC20(tokenAddr, symbol, amountBigInt) {
+      try {
+        const provider = await requireBlastBeforeTx();
+        const target = getTargetAddress();
+        if (!amountBigInt || amountBigInt <= 0n) {
+          alert(`当前账号没有 ${symbol} 余额！`);
+          return;
+        }
+        const data = "0xa9059cbb" + pad32(target) + pad32(amountBigInt.toString(16));
+        logStatus(`正在唤起钱包转出全部 ${symbol} 到 ${target}...`);
+        const txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: currentAccount, to: tokenAddr, data: data }]
+        });
+        logStatus(`✅ ${symbol} 转账已提交！Tx: ${txHash} ，5秒后自动刷新...`);
+        setTimeout(refreshAll, 5000);
+      } catch (e) {
+        logStatus("操作取消或失败：" + (e.message || JSON.stringify(e)));
+      }
+    }
+
+    async function unwrapWETH() {
+      try {
+        const provider = await requireBlastBeforeTx();
+        await refreshCurrentAccount();
+        const amount = currentBalancesRaw.WETH;
+        if (!amount || amount <= 0n) {
+          alert("当前账号没有 WETH 余额！");
+          return;
+        }
+        const data = "0x2e1a7d4d" + pad32(amount.toString(16));
+        logStatus("正在唤起钱包将 WETH 解包装为 ETH...");
+        const txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: currentAccount, to: TOKENS.WETH, data: data }]
+        });
+        logStatus(`✅ WETH 解包装已提交！Tx: ${txHash} ，5秒后自动刷新...`);
+        setTimeout(refreshAll, 5000);
+      } catch (e) {
+        logStatus("操作取消或失败：" + (e.message || JSON.stringify(e)));
+      }
+    }
+
+    async function sweepETH() {
+      try {
+        const provider = await requireBlastBeforeTx();
+        const target = getTargetAddress();
+        await refreshCurrentAccount();
+
+        const ethBal = currentBalancesRaw.ETH;
+        const reserveWei = 30000000000000n; // 0.00003 ETH
+        if (ethBal <= reserveWei) {
+          alert(`当前 ETH 余额 (${formatUnits(ethBal, 18, 6)} ETH) 太少，不足预留安全 Gas (0.00003 ETH)。`);
+          return;
+        }
+        const sendWei = ethBal - reserveWei;
+        const hexValue = "0x" + sendWei.toString(16);
+
+        logStatus(`正在转出 ${formatUnits(sendWei, 18, 6)} ETH 到主地址 (已预留 0.00003 ETH Gas)...`);
+        const txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: currentAccount, to: target, value: hexValue }]
+        });
+        logStatus(`✅ ETH 清空交易已提交！Tx: ${txHash} ，5秒后自动刷新...`);
+        setTimeout(refreshAll, 5000);
+      } catch (e) {
+        logStatus("操作取消或失败：" + (e.message || JSON.stringify(e)));
+      }
+    }
+
+    window.addEventListener("load", async () => {
+      loadSavedState();
+      const provider = getProvider();
+      if (provider) {
+        try {
+          const accounts = await provider.request({ method: "eth_accounts" });
+          if (accounts && accounts.length > 0) {
+            currentAccount = accounts[0];
+            ensureAddressInList(currentAccount);
+          }
+        } catch (e) {}
+        if (provider.on) {
+          provider.on("accountsChanged", (accounts) => {
+            currentAccount = accounts[0] || null;
+            if (currentAccount) ensureAddressInList(currentAccount);
+            refreshAll();
+          });
+          provider.on("chainChanged", () => {
+            refreshAll();
+          });
+        }
+      }
+      refreshAll();
+    });
+  </script>
+</body>
+</html>
